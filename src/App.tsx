@@ -1,43 +1,65 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Box, CssBaseline, Toolbar } from '@mui/material';
-import Navigation from './components/Navigation';
-import Dashboard from './pages/Dashboard';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import theme from './theme';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AccountProvider } from './contexts/AccountContext';
+import { ContactOpportunityProvider } from './contexts/ContactOpportunityContext';
+import Layout from './components/Layout';
+import Login from './components/Login';
+import SignUp from './components/SignUp';
 import Accounts from './pages/Accounts';
 import AccountDetails from './pages/AccountDetails';
-import StakeholderManagement from './pages/StakeholderManagement';
-import OpportunityPipeline from './pages/OpportunityPipeline';
-import StrategicInitiatives from './pages/StrategicInitiatives';
-import Analytics from './pages/Analytics';
 
-const App = () => {
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return null;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  return <>{children}</>;
+};
+
+const App: React.FC = () => {
   return (
-    <Router>
-      <Box sx={{ display: 'flex' }}>
-        <CssBaseline />
-        <Navigation />
-        <Box
-          component="main"
-          sx={{
-            flexGrow: 1,
-            p: 3,
-            width: { sm: `calc(100% - 240px)` },
-            marginLeft: { sm: '240px' },
-          }}
-        >
-          <Toolbar /> {/* This creates space for the AppBar */}
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <AuthProvider>
+        <Router>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/accounts" element={<Accounts />} />
-            <Route path="/accounts/:id" element={<AccountDetails />} />
-            <Route path="/stakeholders" element={<StakeholderManagement />} />
-            <Route path="/opportunities" element={<OpportunityPipeline />} />
-            <Route path="/initiatives" element={<StrategicInitiatives />} />
-            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <AccountProvider>
+                    <ContactOpportunityProvider>
+                      <Layout>
+                        <Routes>
+                          <Route path="/" element={<Navigate to="/accounts" />} />
+                          <Route path="/accounts" element={<Accounts />} />
+                          <Route path="/accounts/:id" element={<AccountDetails />} />
+                        </Routes>
+                      </Layout>
+                    </ContactOpportunityProvider>
+                  </AccountProvider>
+                </ProtectedRoute>
+              }
+            />
           </Routes>
-        </Box>
-      </Box>
-    </Router>
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 

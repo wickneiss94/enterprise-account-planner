@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -9,39 +9,45 @@ import ReactFlow, {
   NodeChange,
   applyNodeChanges,
   addEdge,
+  NodeProps,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { 
   Box,
   Typography,
+  CircularProgress,
 } from '@mui/material';
+import { useAccounts } from '../contexts/AccountContext';
+import { Account } from '../models/Account';
+import { ContactPerson } from '../models/ContactPerson';
+import { Opportunity } from '../models/Opportunity';
 
-interface Account {
-  id: number;
+interface AccountNodeData {
+  id: string;
   name: string;
-  ticker: string;
-  arr: number;
+  ticker?: string;
   industry: string;
-  transformationReadiness: boolean;
-  priority: 'High' | 'Medium' | 'Low';
-  status: 'Active' | 'Prospect' | 'At Risk';
+  arr: number;
+  status: Account['status'];
+  priority: Account['priority'];
+  transformationReadiness?: number;
+  lastUpdated: Date;
+  notes?: string;
+  contacts?: ContactPerson[];
+  opportunities?: Opportunity[];
 }
-
-type AccountNodeData = {
-  name: string;
-  arr: number;
-  industry: string;
-  priority: 'High' | 'Medium' | 'Low';
-  status: 'Active' | 'Prospect' | 'At Risk';
-};
 
 type AccountNode = Node<AccountNodeData>;
 
-interface TerritoryMapProps {
-  accounts: Account[];
-}
+const formatDate = (date: Date): string => {
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};
 
-const getNodeStyle = (priority: 'High' | 'Medium' | 'Low', status: 'Active' | 'Prospect' | 'At Risk') => {
+const getNodeStyle = (priority: Account['priority'], status: Account['status']) => {
   const baseStyle = {
     padding: 15,
     borderRadius: 8,
@@ -49,14 +55,12 @@ const getNodeStyle = (priority: 'High' | 'Medium' | 'Low', status: 'Active' | 'P
     width: 220,
   };
 
-  // Priority affects the border width and style
   const priorityStyles = {
     High: { borderWidth: 3, boxShadow: '0 4px 8px rgba(0,0,0,0.2)' },
     Medium: { borderWidth: 2, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' },
     Low: { borderWidth: 1 },
   };
 
-  // Status affects the background color
   const statusColors = {
     Active: '#4caf50',
     Prospect: '#2196f3',
@@ -71,25 +75,20 @@ const getNodeStyle = (priority: 'High' | 'Medium' | 'Low', status: 'Active' | 'P
   };
 };
 
-const AccountNodeDisplay = ({ data }: { data: AccountNodeData }) => {
-  const formatARR = (arr: number) => {
-    return `$${(arr / 1000000).toFixed(1)}M`;
-  };
-
+const AccountNodeDisplay: React.FC<NodeProps<AccountNodeData>> = ({ data }) => {
   return (
-    <div style={getNodeStyle(data.priority, data.status)}>
-      <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-        {data.name}
-      </Typography>
-      <Typography variant="body2">
-        Revenue: {formatARR(data.arr)}
-      </Typography>
-      <Typography variant="body2">
-        Industry: {data.industry}
-      </Typography>
-      <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
-        Priority: {data.priority} | Status: {data.status}
-      </Typography>
+    <div className="account-node">
+      <Typography variant="h6">{data.name}</Typography>
+      <Typography variant="body2">Status: {data.status}</Typography>
+      <Typography variant="body2">ARR: ${data.arr.toLocaleString()}</Typography>
+      <Typography variant="body2">Industry: {data.industry}</Typography>
+      <Typography variant="body2">Priority: {data.priority}</Typography>
+      <Typography variant="body2">Last Updated: {formatDate(new Date(data.lastUpdated))}</Typography>
+      {data.opportunities && data.opportunities.length > 0 && (
+        <Typography variant="body2">
+          Next Close: {formatDate(new Date(data.opportunities[0].expectedCloseDate))}
+        </Typography>
+      )}
     </div>
   );
 };
@@ -98,60 +97,58 @@ const nodeTypes = {
   account: AccountNodeDisplay,
 };
 
-const TerritoryMap: React.FC<TerritoryMapProps> = ({ accounts }) => {
+const TerritoryMap: React.FC = () => {
   const [nodes, setNodes] = useState<AccountNode[]>([]);
+  const { accounts, loading, error } = useAccounts();
+
+  useEffect(() => {
+    // Convert accounts to nodes with initial positions
+    const accountNodes: AccountNode[] = accounts.map((account, index) => ({
+      id: `account-${account.id}`,
+      type: 'account',
+      position: {
+        x: 100 + (index % 3) * 300,
+        y: 100 + Math.floor(index / 3) * 200,
+      },
+      draggable: true,
+      data: {
+        id: account.id.toString(),
+        name: account.name,
+        ticker: account.ticker,
+        industry: account.industry,
+        arr: account.arr,
+        status: account.status,
+        priority: account.priority,
+        transformationReadiness: typeof account.transformationReadiness === 'number' ? account.transformationReadiness : undefined,
+        lastUpdated: new Date(account.lastUpdated),
+        notes: account.notes,
+        contacts: account.contacts,
+        opportunities: account.opportunities,
+      },
+    }));
+    setNodes(accountNodes);
+  }, [accounts]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
     []
   );
 
-  const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault();
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
-      const reactFlowBounds = (event.target as Element)
-        .closest('.react-flow')
-        ?.getBoundingClientRect();
-
-      if (reactFlowBounds) {
-        const account = JSON.parse(event.dataTransfer.getData('application/json')) as Account;
-        
-        const existingNode = nodes.find(
-          (node) => node.id === `account-${account.id}`
-        );
-
-        if (!existingNode) {
-          const position = {
-            x: event.clientX - reactFlowBounds.left,
-            y: event.clientY - reactFlowBounds.top,
-          };
-
-          const newNode: AccountNode = {
-            id: `account-${account.id}`,
-            type: 'account',
-            position,
-            draggable: true,
-            data: {
-              name: account.name,
-              arr: account.arr,
-              industry: account.industry,
-              priority: account.priority,
-              status: account.status,
-            },
-          };
-
-          setNodes((nds) => [...nds, newNode]);
-        }
-      }
-    },
-    [nodes]
-  );
-
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
+  if (error) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography color="error">Error: {error}</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -166,8 +163,6 @@ const TerritoryMap: React.FC<TerritoryMapProps> = ({ accounts }) => {
         nodes={nodes}
         edges={[]}
         onNodesChange={onNodesChange}
-        onDrop={onDrop}
-        onDragOver={onDragOver}
         nodeTypes={nodeTypes}
         fitView
       >

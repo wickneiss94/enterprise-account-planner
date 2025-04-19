@@ -118,7 +118,7 @@ const CustomEdge = ({
   targetY,
   data,
   selected,
-}: EdgeProps) => {
+}: EdgeProps<CustomEdgeData>) => {
   const [edgePathString, labelX, labelY] = getStraightPath({
     sourceX,
     sourceY,
@@ -176,7 +176,7 @@ const nodeTypes = {
 };
 
 const edgeTypes = {
-  custom: CustomEdge,
+  custom: CustomEdge as unknown as React.ComponentType<EdgeProps>,
 };
 
 const StakeholderMap: React.FC<StakeholderMapProps> = ({ contacts }) => {
@@ -186,12 +186,12 @@ const StakeholderMap: React.FC<StakeholderMapProps> = ({ contacts }) => {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
   const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds as Node[])),
+    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
     []
   );
 
   const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds as Edge[])),
     []
   );
 
@@ -203,21 +203,21 @@ const StakeholderMap: React.FC<StakeholderMapProps> = ({ contacts }) => {
           id: `edge-${connection.source}-${connection.target}`,
           source: connection.source,
           target: connection.target,
-          sourceHandle: connection.sourceHandle || undefined,
-          targetHandle: connection.targetHandle || undefined,
+          sourceHandle: connection.sourceHandle || null,
+          targetHandle: connection.targetHandle || null,
           type: 'custom',
           data: {
-            relationship: 'Works with',
+            relationship: 'Works with' as RelationshipType,
           },
         };
-        setEdges((eds) => addEdge(newEdge, eds));
+        setEdges((eds) => addEdge(newEdge, eds) as CustomEdge[]);
       }
     },
     []
   );
 
   const onDrop = useCallback(
-    (event: React.DragEvent) => {
+    (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
 
       const reactFlowBounds = (event.target as Element)
@@ -261,7 +261,7 @@ const StakeholderMap: React.FC<StakeholderMapProps> = ({ contacts }) => {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  const handleEdgeClick = (event: React.MouseEvent, edge: Edge) => {
+  const handleEdgeClick = (event: React.MouseEvent, edge: CustomEdge) => {
     setSelectedEdge(edge.id);
     setMenuAnchor(event.currentTarget as HTMLElement);
   };
@@ -269,11 +269,18 @@ const StakeholderMap: React.FC<StakeholderMapProps> = ({ contacts }) => {
   const handleRelationshipSelect = (relationship: RelationshipType) => {
     if (selectedEdge) {
       setEdges((eds) =>
-        eds.map((edge) =>
-          edge.id === selectedEdge
-            ? { ...edge, data: { ...edge.data, relationship } }
-            : edge
-        )
+        eds.map((ed) => {
+          if (ed.id === selectedEdge) {
+            return {
+              ...ed,
+              data: {
+                ...ed.data,
+                relationship,
+              },
+            };
+          }
+          return ed;
+        })
       );
     }
     setMenuAnchor(null);

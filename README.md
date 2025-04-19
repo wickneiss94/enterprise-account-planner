@@ -1,100 +1,53 @@
 # Enterprise Account Planner
 
-A comprehensive account planning application for enterprise sales representatives to manage and track key accounts, stakeholders, opportunities, and strategic initiatives.
+A comprehensive account planning tool for enterprise sales teams.
 
-## Features
+## Setup
 
-- **Account Dashboard**
-  - Overview of key accounts
-  - Portfolio value tracking
-  - Account health monitoring
-  - Quick access to opportunities
-
-- **Account Details**
-  - Comprehensive account information
-  - Key metrics and performance indicators
-  - Contact information and history
-  - Account status tracking
-
-- **Stakeholder Management**
-  - Stakeholder mapping and relationships
-  - Influence and engagement tracking
-  - Contact information and communication history
-  - Relationship strength indicators
-
-- **Opportunity Pipeline**
-  - Visual pipeline management
-  - Opportunity tracking and forecasting
-  - Win/loss probability assessment
-  - Revenue forecasting
-  - Stage progression tracking
-
-- **Strategic Initiatives**
-  - Initiative planning and tracking
-  - Progress monitoring
-  - Milestone management
-  - Priority-based organization
-  - Team collaboration features
-
-- **Analytics Dashboard**
-  - Revenue analytics
-  - Engagement metrics
-  - Performance trends
-  - Account health tracking
-  - Opportunity win rates
-
-## Technology Stack
-
-- React 18
-- TypeScript
-- Material-UI (MUI) v5
-- React Router v6
-
-## Getting Started
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd enterprise-account-planner
-```
-
+1. Clone the repository
 2. Install dependencies:
 ```bash
 npm install
 ```
 
-3. Start the development server:
+3. Create a `.env` file in the root directory with your Firebase configuration:
+```
+REACT_APP_FIREBASE_API_KEY=your_api_key
+REACT_APP_FIREBASE_AUTH_DOMAIN=your_auth_domain
+REACT_APP_FIREBASE_PROJECT_ID=your_project_id
+REACT_APP_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+REACT_APP_FIREBASE_APP_ID=your_app_id
+```
+
+To get these values:
+1. Go to the [Firebase Console](https://console.firebase.google.com/)
+2. Select your project (or create a new one)
+3. Click on the gear icon next to "Project Overview" and select "Project settings"
+4. Scroll down to the "Your apps" section
+5. Click the web icon (</>)
+6. Register your app and copy the configuration values
+
+4. Start the development server:
 ```bash
 npm start
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) to view the application in your browser.
+## Features
 
-## Project Structure
-
-```
-src/
-├── components/     # Reusable UI components
-├── pages/         # Main application pages
-├── services/      # API and business logic
-└── types/         # TypeScript type definitions
-```
-
-## Available Scripts
-
-- `npm start` - Runs the app in development mode
-- `npm test` - Launches the test runner
-- `npm run build` - Builds the app for production
-- `npm run eject` - Ejects from Create React App
+- Dashboard with key account metrics
+- Territory mapping
+- Stakeholder management
+- Opportunity pipeline
+- Strategic initiatives tracking
+- Analytics dashboard
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Create a feature branch
+2. Make your changes
+3. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT

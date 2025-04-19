@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -24,17 +24,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import AccountDialog from '../components/AccountDialog';
 import TerritoryMap from '../components/TerritoryMap';
-
-interface Account {
-  id: number;
-  name: string;
-  ticker: string;
-  arr: number;
-  industry: string;
-  transformationReadiness: boolean;
-  priority: 'High' | 'Medium' | 'Low';
-  status: 'Active' | 'Prospect' | 'At Risk';
-}
+import { useAccounts } from '../contexts/AccountContext';
+import { Account, getAccounts, createAccount, updateAccount, deleteAccount } from '../models/Account';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -58,63 +49,9 @@ const TabPanel = (props: TabPanelProps) => {
   );
 };
 
-// Updated mock data with priority and status
-const mockAccounts: Account[] = [
-  {
-    id: 1,
-    name: 'Microsoft Corporation',
-    ticker: 'MSFT',
-    arr: 50000000,
-    industry: 'Technology',
-    transformationReadiness: true,
-    priority: 'High' as const,
-    status: 'Active' as const,
-  },
-  {
-    id: 2,
-    name: 'Tesla, Inc.',
-    ticker: 'TSLA',
-    arr: 25000000,
-    industry: 'Automotive',
-    transformationReadiness: true,
-    priority: 'Medium' as const,
-    status: 'Active' as const,
-  },
-  {
-    id: 3,
-    name: 'Johnson & Johnson',
-    ticker: 'JNJ',
-    arr: 35000000,
-    industry: 'Healthcare',
-    transformationReadiness: false,
-    priority: 'Low' as const,
-    status: 'At Risk' as const,
-  },
-  {
-    id: 4,
-    name: 'Walmart Inc.',
-    ticker: 'WMT',
-    arr: 45000000,
-    industry: 'Retail',
-    transformationReadiness: true,
-    priority: 'High' as const,
-    status: 'Active' as const,
-  },
-  {
-    id: 5,
-    name: 'SpaceX',
-    ticker: 'Private',
-    arr: 15000000,
-    industry: 'Aerospace',
-    transformationReadiness: true,
-    priority: 'Medium' as const,
-    status: 'Prospect' as const,
-  },
-];
-
 const Accounts = () => {
   const navigate = useNavigate();
-  const [accounts, setAccounts] = useState<Account[]>(mockAccounts);
+  const { accounts, addAccount, updateAccount } = useAccounts();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | undefined>(undefined);
   const [dialogMode, setDialogMode] = useState<'add' | 'edit'>('add');
@@ -124,12 +61,15 @@ const Accounts = () => {
     setTabValue(newValue);
   };
 
-  const handleReadinessToggle = (id: number) => {
-    setAccounts(accounts.map(account => 
-      account.id === id 
-        ? { ...account, transformationReadiness: !account.transformationReadiness }
-        : account
-    ));
+  const handleReadinessToggle = async (accountId: string, currentReadiness: boolean) => {
+    try {
+      await updateAccount(accountId, {
+        transformationReadiness: !currentReadiness,
+        lastUpdated: new Date()
+      });
+    } catch (error) {
+      console.error('Error updating account readiness:', error);
+    }
   };
 
   const handleAddClick = () => {
@@ -150,21 +90,30 @@ const Accounts = () => {
     setSelectedAccount(undefined);
   };
 
-  const handleDialogSave = (accountData: Omit<Account, 'id'>) => {
-    if (dialogMode === 'add') {
-      const newAccount = {
-        ...accountData,
-        id: Math.max(...accounts.map(a => a.id)) + 1,
-      };
-      setAccounts([...accounts, newAccount]);
-    } else {
-      setAccounts(accounts.map(account =>
-        account.id === selectedAccount?.id
-          ? { ...account, ...accountData }
-          : account
-      ));
+  const handleDialogSave = async (accountData: Omit<Account, 'id' | 'lastUpdated'>) => {
+    try {
+      if (selectedAccount) {
+        // Update existing account
+        await updateAccount(selectedAccount.id, {
+          ...accountData,
+          lastUpdated: new Date()
+        });
+      } else {
+        // Create new account
+        const newAccountId = await createAccount({
+          ...accountData,
+          lastUpdated: new Date()
+        });
+        const newAccount: Account = {
+          ...accountData,
+          id: newAccountId,
+          lastUpdated: new Date()
+        };
+      }
+      handleDialogClose();
+    } catch (error) {
+      console.error('Error saving account:', error);
     }
-    handleDialogClose();
   };
 
   const formatARR = (arr: number) => {
@@ -223,7 +172,7 @@ const Accounts = () => {
                       checked={account.transformationReadiness}
                       onChange={(e) => {
                         e.stopPropagation();
-                        handleReadinessToggle(account.id);
+                        handleReadinessToggle(account.id, account.transformationReadiness);
                       }}
                       color="primary"
                     />
@@ -247,52 +196,33 @@ const Accounts = () => {
         <AccountDialog
           open={dialogOpen}
           onClose={handleDialogClose}
-          onSave={handleDialogSave}
-          account={selectedAccount}
+          onSave={(account) => {
+            const accountData = {
+              ...account,
+              createdAt: selectedAccount?.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            return handleDialogSave(accountData);
+          }}
+          account={selectedAccount as Account}
           mode={dialogMode}
         />
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4">Territory Map</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Paper sx={{ p: 2, flex: '0 0 250px' }}>
+        <Box sx={{ display: 'flex', gap: 2, height: 'calc(100vh - 200px)' }}>
+          <Paper sx={{ p: 2, width: 300 }}>
             <Typography variant="h6" gutterBottom>
-              Accounts
+              Territory Overview
             </Typography>
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: 1,
-              maxHeight: 'calc(70vh - 100px)',
-              overflowY: 'auto'
-            }}>
-              {accounts.map((account) => (
-                <Paper
-                  key={account.id}
-                  elevation={2}
-                  sx={{ 
-                    p: 1,
-                    cursor: 'move',
-                    '&:hover': { backgroundColor: '#f5f5f5' }
-                  }}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('application/json', JSON.stringify(account));
-                  }}
-                >
-                  <Typography variant="subtitle2">{account.name}</Typography>
-                  <Typography variant="caption" display="block">
-                    {account.industry} | {formatARR(account.arr)}
-                  </Typography>
-                </Paper>
-              ))}
-            </Box>
+            <Typography variant="body2" color="text.secondary">
+              Drag accounts from the list to position them on the map.
+              The size and color of each node represents the account's
+              priority and status.
+            </Typography>
           </Paper>
           <Box sx={{ flex: 1 }}>
-            <TerritoryMap accounts={accounts} />
+            <TerritoryMap />
           </Box>
         </Box>
       </TabPanel>

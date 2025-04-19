@@ -19,6 +19,13 @@ import {
 import { Edit as EditIcon, DragIndicator as DragIcon } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
 import StakeholderMap from '../components/StakeholderMap';
+import ContactList from '../components/ContactList';
+import ContactDialog from '../components/ContactDialog';
+import OpportunityBoard from '../components/OpportunityBoard';
+import OpportunityDialog from '../components/OpportunityDialog';
+import { useContactOpportunity } from '../contexts/ContactOpportunityContext';
+import { ContactPerson } from '../models/ContactPerson';
+import { Opportunity } from '../models/Opportunity';
 
 // Mock data - replace with actual data from your backend
 const mockAccount = {
@@ -80,177 +87,143 @@ interface TabPanelProps {
   value: number;
 }
 
-const TabPanel = (props: TabPanelProps) => {
-  const { children, value, index, ...other } = props;
-
+const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
   return (
-    <div
+    <Box
       role="tabpanel"
       hidden={value !== index}
-      id={`account-tabpanel-${index}`}
-      aria-labelledby={`account-tab-${index}`}
-      {...other}
+      id={`account-detail-tabpanel-${index}`}
+      aria-labelledby={`account-detail-tab-${index}`}
+      sx={{ mt: 2 }}
     >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
+      {value === index && children}
+    </Box>
   );
 };
 
-const AccountDetails = () => {
+const AccountDetails: React.FC = () => {
+  const {
+    contacts,
+    opportunities,
+    addContact,
+    updateContact,
+    deleteContact,
+    addOpportunity,
+    updateOpportunity,
+    deleteOpportunity,
+  } = useContactOpportunity();
+
   const { id } = useParams<{ id: string }>();
-  const [tabValue, setTabValue] = React.useState(0);
+  const [currentTab, setCurrentTab] = useState(0);
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<ContactPerson | undefined>();
+  const [opportunityDialogOpen, setOpportunityDialogOpen] = useState(false);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | undefined>();
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+    setCurrentTab(newValue);
+  };
+
+  // Contact handlers
+  const handleAddContact = () => {
+    setSelectedContact(undefined);
+    setContactDialogOpen(true);
+  };
+
+  const handleEditContact = (contact: ContactPerson) => {
+    setSelectedContact(contact);
+    setContactDialogOpen(true);
+  };
+
+  const handleContactSave = (contactData: Omit<ContactPerson, 'id'>) => {
+    if (selectedContact) {
+      updateContact(selectedContact.id, contactData);
+    } else {
+      addContact(contactData);
+    }
+    setContactDialogOpen(false);
+    setSelectedContact(undefined);
+  };
+
+  // Opportunity handlers
+  const handleAddOpportunity = () => {
+    setSelectedOpportunity(undefined);
+    setOpportunityDialogOpen(true);
+  };
+
+  const handleEditOpportunity = (opportunity: Opportunity) => {
+    setSelectedOpportunity(opportunity);
+    setOpportunityDialogOpen(true);
+  };
+
+  const handleOpportunitySave = (opportunityData: Omit<Opportunity, 'id' | 'lastUpdated'>) => {
+    if (selectedOpportunity) {
+      updateOpportunity(selectedOpportunity.id, opportunityData);
+    } else {
+      addOpportunity(opportunityData);
+    }
+    setOpportunityDialogOpen(false);
+    setSelectedOpportunity(undefined);
+  };
+
+  const handleStageChange = (opportunityId: string, newStage: Opportunity['stage']) => {
+    updateOpportunity(opportunityId, { stage: newStage });
   };
 
   return (
-    <Box sx={{ flexGrow: 1 }}>
-      {/* Header */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box>
-            <Typography variant="h4">{mockAccount.name}</Typography>
-            <Typography variant="subtitle1" color="textSecondary">
-              {mockAccount.industry}
-            </Typography>
-          </Box>
-          <Button variant="outlined" startIcon={<EditIcon />}>
-            Edit Account
-          </Button>
-        </Box>
-        <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-          <Chip
-            label={mockAccount.status}
-            color={mockAccount.status === 'Active' ? 'success' : 'error'}
-          />
-          <Chip label={`Health Score: ${mockAccount.healthScore}%`} color="primary" />
-        </Box>
-      </Paper>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Account Details
+      </Typography>
+      <Divider sx={{ mb: 3 }} />
 
-      {/* Tabs */}
       <Paper sx={{ width: '100%' }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="account tabs">
-          <Tab label="Overview" />
-          <Tab label="Activities" />
+        <Tabs
+          value={currentTab}
+          onChange={handleTabChange}
+          indicatorColor="primary"
+          textColor="primary"
+        >
           <Tab label="Contacts" />
-          <Tab label="Stakeholder Map" />
+          <Tab label="Opportunities" />
         </Tabs>
-        <Divider />
 
-        {/* Overview Tab */}
-        <TabPanel value={tabValue} index={0}>
-          <List>
-            <ListItem>
-              <ListItemText
-                primary="Annual Revenue"
-                secondary={`$${(mockAccount.annualRevenue / 1000000).toFixed(2)}M`}
-              />
-            </ListItem>
-            <ListItem>
-              <ListItemText primary="Employees" secondary={mockAccount.employees} />
-            </ListItem>
-            <ListItem>
-              <ListItemText primary="Website" secondary={mockAccount.website} />
-            </ListItem>
-            <ListItem>
-              <ListItemText primary="Address" secondary={mockAccount.address} />
-            </ListItem>
-            <ListItem>
-              <ListItemText
-                primary="Description"
-                secondary={mockAccount.description}
-                secondaryTypographyProps={{ style: { whiteSpace: 'pre-wrap' } }}
-              />
-            </ListItem>
-          </List>
-        </TabPanel>
+        <Box sx={{ p: 2 }}>
+          <TabPanel value={currentTab} index={0}>
+            <ContactList
+              contacts={contacts}
+              onAddContact={handleAddContact}
+              onEditContact={handleEditContact}
+              onDeleteContact={deleteContact}
+            />
+          </TabPanel>
 
-        {/* Activities Tab */}
-        <TabPanel value={tabValue} index={1}>
-          <List>
-            {mockAccount.recentActivities.map((activity, index) => (
-              <ListItem key={index} divider={index < mockAccount.recentActivities.length - 1}>
-                <ListItemText
-                  primary={activity.type}
-                  secondary={
-                    <>
-                      <Typography component="span" variant="body2" color="textSecondary">
-                        {activity.date}
-                      </Typography>
-                      <br />
-                      {activity.description}
-                    </>
-                  }
-                />
-              </ListItem>
-            ))}
-          </List>
-        </TabPanel>
-
-        {/* Contacts Tab */}
-        <TabPanel value={tabValue} index={2}>
-          <List>
-            {mockAccount.contacts.map((contact, index) => (
-              <ListItem key={index} divider={index < mockAccount.contacts.length - 1}>
-                <ListItemText
-                  primary={contact.name}
-                  secondary={
-                    <>
-                      <Typography component="span" variant="body2">
-                        {contact.title}
-                      </Typography>
-                      <br />
-                      {contact.email}
-                    </>
-                  }
-                />
-              </ListItem>
-            ))}
-          </List>
-        </TabPanel>
-
-        {/* Stakeholder Map Tab */}
-        <TabPanel value={tabValue} index={3}>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            {/* Contact List for Drag and Drop */}
-            <Paper sx={{ width: 300, p: 2, alignSelf: 'flex-start' }}>
-              <Typography variant="h6" gutterBottom>
-                Available Contacts
-              </Typography>
-              <List>
-                {mockAccount.contacts.map((contact) => (
-                  <Card
-                    key={contact.id}
-                    sx={{ mb: 1, cursor: 'move' }}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('application/json', JSON.stringify(contact));
-                    }}
-                  >
-                    <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <DragIcon color="action" />
-                        <Box>
-                          <Typography variant="body1">{contact.name}</Typography>
-                          <Typography variant="body2" color="textSecondary">
-                            {contact.title}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                ))}
-              </List>
-            </Paper>
-            
-            {/* Stakeholder Map */}
-            <Box sx={{ flexGrow: 1 }}>
-              <StakeholderMap contacts={mockAccount.contacts} />
-            </Box>
-          </Box>
-        </TabPanel>
+          <TabPanel value={currentTab} index={1}>
+            <OpportunityBoard
+              opportunities={opportunities}
+              onAddOpportunity={handleAddOpportunity}
+              onEditOpportunity={handleEditOpportunity}
+              onStageChange={handleStageChange}
+            />
+          </TabPanel>
+        </Box>
       </Paper>
+
+      <ContactDialog
+        open={contactDialogOpen}
+        onClose={() => setContactDialogOpen(false)}
+        onSave={handleContactSave}
+        contact={selectedContact}
+        mode={selectedContact ? 'edit' : 'add'}
+      />
+
+      <OpportunityDialog
+        open={opportunityDialogOpen}
+        onClose={() => setOpportunityDialogOpen(false)}
+        onSave={handleOpportunitySave}
+        opportunity={selectedOpportunity}
+        mode={selectedOpportunity ? 'edit' : 'add'}
+      />
     </Box>
   );
 };
