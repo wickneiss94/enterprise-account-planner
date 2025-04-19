@@ -80,8 +80,9 @@ const AccountForm: React.FC<AccountFormProps> = ({ open, onClose, account }) => 
       const submitData = {
         ...formData,
         lastUpdated: now,
-        createdAt: account ? account.createdAt : now,
+        createdAt: account ? new Date(account.createdAt) : now,
         updatedAt: now,
+        expectedCloseDate: formData.expectedCloseDate ? new Date(formData.expectedCloseDate) : undefined,
       };
 
       if (account) {

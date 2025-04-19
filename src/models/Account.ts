@@ -9,7 +9,8 @@ import {
   deleteDoc,
   query,
   where,
-  DocumentData
+  DocumentData,
+  Timestamp
 } from 'firebase/firestore';
 import { ContactPerson } from './ContactPerson';
 import { Opportunity } from './Opportunity';
@@ -38,63 +39,62 @@ export interface Account {
 // Firestore collection references
 const accountsCollection = collection(db, 'accounts');
 
+// Helper function to convert Firestore data to Account type
+const convertFirestoreData = (doc: DocumentData): Account => {
+  const data = doc.data();
+  return {
+    id: doc.id,
+    name: data.name || '',
+    ticker: data.ticker,
+    industry: data.industry || '',
+    arr: data.arr || 0,
+    status: data.status as AccountStatus || 'Prospect',
+    priority: data.priority as AccountPriority || 'Medium',
+    transformationReadiness: data.transformationReadiness || false,
+    lastUpdated: data.lastUpdated?.toDate() || new Date(),
+    notes: data.notes,
+    contacts: data.contacts || [],
+    opportunities: data.opportunities || [],
+    expectedCloseDate: data.expectedCloseDate?.toDate(),
+    createdAt: data.createdAt?.toDate() || new Date(),
+    updatedAt: data.updatedAt?.toDate() || new Date(),
+  };
+};
+
 // CRUD operations
 export const getAccounts = async (): Promise<Account[]> => {
   const snapshot = await getDocs(accountsCollection);
-  return snapshot.docs.map(doc => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      name: data.name,
-      industry: data.industry,
-      arr: data.arr,
-      status: data.status as AccountStatus,
-      priority: data.priority as AccountPriority,
-      contacts: data.contacts,
-      opportunities: data.opportunities,
-      expectedCloseDate: data.expectedCloseDate?.toDate(),
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date()
-    };
-  });
+  return snapshot.docs.map(convertFirestoreData);
 };
 
 export const getAccount = async (id: string): Promise<Account | null> => {
   const docSnap = await getDoc(doc(accountsCollection, id));
   
   if (docSnap.exists()) {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      name: data.name,
-      industry: data.industry,
-      arr: data.arr,
-      status: data.status as AccountStatus,
-      priority: data.priority as AccountPriority,
-      contacts: data.contacts,
-      opportunities: data.opportunities,
-      expectedCloseDate: data.expectedCloseDate?.toDate(),
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date()
-    };
+    return convertFirestoreData(docSnap);
   }
   
   return null;
 };
 
 export const createAccount = async (account: Omit<Account, 'id'>): Promise<string> => {
+  const now = new Date();
   const docRef = await addDoc(accountsCollection, {
     ...account,
-    lastUpdated: new Date()
+    lastUpdated: Timestamp.fromDate(now),
+    createdAt: Timestamp.fromDate(now),
+    updatedAt: Timestamp.fromDate(now),
   });
   return docRef.id;
 };
 
 export const updateAccount = async (id: string, updates: Partial<Account>): Promise<void> => {
   const docRef = doc(db, 'accounts', id);
+  const now = new Date();
   await updateDoc(docRef, {
     ...updates,
-    lastUpdated: new Date()
+    lastUpdated: Timestamp.fromDate(now),
+    updatedAt: Timestamp.fromDate(now),
   });
 };
 
@@ -107,21 +107,11 @@ export const deleteAccount = async (id: string): Promise<void> => {
 export const getAccountsByStatus = async (status: Account['status']): Promise<Account[]> => {
   const q = query(accountsCollection, where('status', '==', status));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-    lastUpdated: doc.data().lastUpdated?.toDate(),
-    expectedCloseDate: doc.data().expectedCloseDate?.toDate()
-  })) as Account[];
+  return snapshot.docs.map(convertFirestoreData);
 };
 
 export const getAccountsByPriority = async (priority: Account['priority']): Promise<Account[]> => {
   const q = query(accountsCollection, where('priority', '==', priority));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-    lastUpdated: doc.data().lastUpdated?.toDate(),
-    expectedCloseDate: doc.data().expectedCloseDate?.toDate()
-  })) as Account[];
+  return snapshot.docs.map(convertFirestoreData);
 }; 
