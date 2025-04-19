@@ -27,15 +27,15 @@ interface Account {
   status: 'Active' | 'Prospect' | 'At Risk';
 }
 
-interface AccountNode extends Node {
-  data: {
-    name: string;
-    arr: number;
-    industry: string;
-    priority: 'High' | 'Medium' | 'Low';
-    status: 'Active' | 'Prospect' | 'At Risk';
-  };
-}
+type AccountNodeData = {
+  name: string;
+  arr: number;
+  industry: string;
+  priority: 'High' | 'Medium' | 'Low';
+  status: 'Active' | 'Prospect' | 'At Risk';
+};
+
+type AccountNode = Node<AccountNodeData>;
 
 interface TerritoryMapProps {
   accounts: Account[];
@@ -71,7 +71,7 @@ const getNodeStyle = (priority: 'High' | 'Medium' | 'Low', status: 'Active' | 'P
   };
 };
 
-const AccountNode = ({ data }: { data: AccountNode['data'] }) => {
+const AccountNodeDisplay = ({ data }: { data: AccountNodeData }) => {
   const formatARR = (arr: number) => {
     return `$${(arr / 1000000).toFixed(1)}M`;
   };
@@ -95,14 +95,14 @@ const AccountNode = ({ data }: { data: AccountNode['data'] }) => {
 };
 
 const nodeTypes = {
-  account: AccountNode,
+  account: AccountNodeDisplay,
 };
 
 const TerritoryMap: React.FC<TerritoryMapProps> = ({ accounts }) => {
   const [nodes, setNodes] = useState<AccountNode[]>([]);
 
   const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds as Node[])),
+    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
     []
   );
 
